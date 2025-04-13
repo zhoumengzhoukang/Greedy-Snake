@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>贪吃蛇游戏</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 动画关键帧 */
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+        @keyframes shine { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+        @keyframes rotate { to { transform: rotate(360deg); } }
+
+        /* 工具类 */
+        .animate-pulse { animation: pulse 2s infinite; }
+        .animate-float { animation: float 3s ease-in-out infinite; }
+        .animate-shine { 
+            background-size: 200% 200%;
+            animation: shine 3s ease infinite;
+        }
+        .animate-rotate { animation: rotate 20s linear infinite; }
+
+        /* 按钮样式 */
+        .btn-primary {
+            @apply px-8 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl 
+                   hover:from-green-600 hover:to-green-700 transition-all transform hover:scale-105 
+                   shadow-lg flex items-center gap-2;
+            animation: float 3s ease-in-out infinite;
+        }
+        .btn-secondary {
+            @apply px-8 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl 
+                   hover:from-blue-600 hover:to-blue-700 transition-all transform hover:scale-105 
+                   shadow-lg flex items-center gap-2;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        /* 图标系统 */
+        .icon {
+            display: inline-block;
+            background-color: currentColor;
+            mask-size: contain;
+            mask-position: center;
+            mask-repeat: no-repeat;
+        }
+        .icon-sm { width: 20px; height: 20px; }
+        .icon-md { width: 24px; height: 24px; }
+        .icon-lg { width: 32px; height: 32px; }
+
+        /* 图标定义 */
+        .icon-play {
+            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolygon points='5 3 19 12 5 21 5 3'%3E%3C/polygon%3E%3C/svg%3E");
+        }
+        .icon-restart {
+            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8'%3E%3C/path%3E%3Cpath d='M3 3v5h5'%3E%3C/path%3E%3C/svg%3E");
+        }
+        .icon-score {
+            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9H4.5a2.5 2.5 0 0 1 0-5H6'%3E%3C/path%3E%3Cpath d='M18 9h1.5a2.5 2.5 0 0 0 0-5H18'%3E%3C/path%3E%3Cpath d='M4 22h16'%3E%3C/path%3E%3Cpath d='M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22'%3E%3C/path%3E%3Cpath d='M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22'%3E%3C/path%3E%3Cpath d='M18 2H6v7a6 6 0 0 0 12 0V2Z'%3E%3C/path%3E%3C/svg%3E");
+        }
+        .icon-keyboard {
+            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='4' width='20' height='16' rx='2' ry='2'%3E%3C/rect%3E%3Cpath d='M6 8h.01'%3E%3C/path%3E%3Cpath d='M10 8h.01'%3E%3C/path%3E%3Cpath d='M14 8h.01'%3E%3C/path%3E%3Cpath d='M18 8h.01'%3E%3C/path%3E%3Cpath d='M8 12h.01'%3E%3C/path%3E%3Cpath d='M12 12h.01'%3E%3C/path%3E%3Cpath d='M16 12h.01'%3E%3C/path%3E%3Cpath d='M7 16h10'%3E%3C/path%3E%3C/svg%3E");
+        }
+
+        /* 游戏元素样式 */
+        .game-board {
+            background: linear-gradient(135deg, #1f2937, #111827);
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
+        }
+        .game-board::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: 
+                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(0deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 20px 20px;
+            pointer-events: none;
+        }
+        .score-container {
+            background: rgba(31, 41, 55, 0.7);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* 装饰元素 */
+        .decoration {
+            position: absolute;
+            pointer-events: none;
+            z-index: -1;
+        }
+        .pattern-bg {
+            background: repeating-linear-gradient(45deg, 
+                rgba(255,255,255,0.1) 0px, 
+                rgba(255,255,255,0.1) 2px, 
+                transparent 2px, 
+                transparent 4px
+            );
+        }
+        .glow-green {
+            background: radial-gradient(circle, 
+                rgba(34,197,94,0.2) 0%, 
+                transparent 70%
+            );
+        }
+        .glow-red {
+            background: radial-gradient(circle, 
+                rgba(239,68,68,0.2) 0%, 
+                transparent 70%
+            );
+        }
+
+        /* 蛇和食物样式 */
+        .snake-head {
+            background: linear-gradient(45deg, #22c55e, #16a34a);
+            box-shadow: 0 0 15px rgba(34, 197, 94, 0.7);
+            position: relative;
+        }
+        .snake-head::before,
+        .snake-head::after {
+            content: '';
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background: white;
+            border-radius: 50%;
+            top: 25%;
+            box-shadow: 0 0 5px white;
+        }
+        .snake-head::before { left: 25%; }
+        .snake-head::after { right: 25%; }
+        .snake-body {
+            background: linear-gradient(45deg, #4ade80, #22c55e);
+            box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
+        }
+        .food {
+            background: radial-gradient(circle, #ef4444, #dc2626);
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.8);
+            animation: pulse 1s infinite;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 animate-shine">
+    <!-- 装饰性背景元素 -->
+    <div class="decoration animate-rotate opacity-10 pattern-bg" style="width: 80%; height: 80%; top: 10%; left: 10%;"></div>
+    <div class="decoration animate-float opacity-20 glow-green" style="width: 200px; height: 200px; top: 5%; right: 5%;"></div>
+    <div class="decoration animate-float opacity-20 glow-red" style="width: 150px; height: 150px; bottom: 5%; left: 5%;"></div>
+    
+    <div class="text-center mb-8 relative z-10">
+        <h1 class="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-blue-400 to-purple-500 mb-6 animate-pulse">
+            贪吃蛇游戏
+        </h1>
+        <div class="flex gap-6 justify-center mb-6">
+            <button id="startBtn" class="btn-primary">
+                <span class="icon icon-sm icon-play"></span>
+                开始游戏
+            </button>
+            <button id="restartBtn" class="btn-secondary">
+                <span class="icon icon-sm icon-restart"></span>
+                重新开始
+            </button>
+        </div>
+        <div class="score-container mt-4 text-3xl text-white font-bold px-8 py-4 rounded-xl shadow-lg flex items-center justify-center gap-2">
+            <span class="icon icon-lg icon-score"></span>
+            得分: <span id="score" class="text-green-400">0</span>
+        </div>
+    </div>
+    
+    <div id="gameBoard" class="game-board border-4 border-gray-700 rounded-xl"></div>
+    
+    <div class="mt-8 text-gray-300 text-sm bg-gray-800 bg-opacity-50 px-4 py-2 rounded-lg flex items-center gap-2">
+        <span class="icon icon-sm icon-keyboard"></span>
+        使用方向键或WASD控制蛇的移动
+    </div>
+    
+    <script src="game.js"></script>
+</body>
+</html> 
